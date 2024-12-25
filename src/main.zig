@@ -9,7 +9,5 @@ pub fn main() !void {
     const user_input = try stdin.readUntilDelimiter(&buffer, '\n');
 
     // TODO: Handle user input
-    if (1 + 1 == 2) {
-        try stdout.print("{s}: command not found\n", .{user_input});
-    }
+    try stdout.print("{s}: command not found\n", .{user_input});
 }

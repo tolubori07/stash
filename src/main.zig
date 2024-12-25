@@ -8,6 +8,9 @@ pub fn main() !void {
     var buffer: [1024]u8 = undefined;
     const user_input = try stdin.readUntilDelimiter(&buffer, '\n');
 
-    // TODO: Handle user input
-    try stdout.print("{s}: command not found\n", .{user_input});
+    //********REPL*********//
+    std.debug.print("$ ", .{});
+    while (true) {
+        try stdout.print("{s}: command not found\n", .{user_input});
+    }
 }

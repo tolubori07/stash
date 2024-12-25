@@ -10,6 +10,6 @@ pub fn main() !void {
 
     // TODO: Handle user input
     if (1 + 1 == 2) {
-        stdout.print("{s}: command not found\n", .{user_input});
+        try stdout.print("{s}: command not found\n", .{user_input});
     }
 }

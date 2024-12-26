@@ -33,7 +33,7 @@ pub fn main() !void {
             var found = false;
             for (builtins) |value| {
                 if (mem.eql(u8, args, value)) {
-                    try stdout.print("{s}: is a shell builtin\n", .{args});
+                    try stdout.print("{s} is a shell builtin\n", .{args});
                     found = true;
                     break;
                 }

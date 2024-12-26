@@ -39,7 +39,7 @@ pub fn main() !void {
                 }
             }
             if (!found)
-                try stdout.print("{s}: command not found\n", .{args});
+                try stdout.print("{s}: not found\n", .{args});
         } else {
             try stdout.print("{s}: command not found\n", .{user_input});
         }

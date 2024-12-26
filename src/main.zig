@@ -1,3 +1,4 @@
+// refactor code later, shi looks ugly
 const std = @import("std");
 
 const io = std.io;

@@ -80,12 +80,10 @@ fn echo(str: []const u8) !void {
     _ = try stdout.write("\n");
 }
 
-fn cd(dir: []const u8) !void {
-    if (dir.len > 0) {
-        try std.posix.chdir(dir);
-    } else {
-        try std.posix.chdir("");
-    }
+fn printWD() !void {
+    const buffer: [1024]u8 = undefined;
+    const pwd = std.process.getCwd(buffer);
+    stdout.print("{s}", pwd);
 }
 
 pub fn main() !void {
@@ -134,8 +132,6 @@ pub fn main() !void {
             };
         } else if (mem.eql(u8, command, "echo")) {
             try echo(args);
-        } else if (mem.eql(u8, command, "cd")) {
-            try cd(args);
         } else {
             // Handle external commands
             const path = try parsePATH(allocator, command) orelse {

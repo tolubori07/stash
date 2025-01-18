@@ -80,6 +80,10 @@ fn echo(str: []const u8) !void {
     _ = try stdout.write("\n");
 }
 
+fn cd(dir: []const u8) !void {
+    try std.posix.chdir(dir);
+}
+
 pub fn main() !void {
     // Initialize allocator
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -126,6 +130,8 @@ pub fn main() !void {
             };
         } else if (mem.eql(u8, command, "echo")) {
             try echo(args);
+        } else if (mem.eql(u8, command, "cd")) {
+            try cd(args);
         } else {
             // Handle external commands
             const path = try parsePATH(allocator, command) orelse {
@@ -133,7 +139,14 @@ pub fn main() !void {
                 continue;
             };
             defer allocator.free(path);
-            // Execute command (implementation omitted for brevity)
+            var xargs = std.ArrayList([]const u8).init(allocator);
+            defer xargs.deinit();
+            try xargs.append(path);
+            while (tokens.next()) |arg| {
+                try xargs.append(arg);
+            }
+            var child = std.process.Child.init(xargs.items, allocator);
+            _ = try child.spawnAndWait();
         }
     }
 }

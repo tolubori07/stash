@@ -87,6 +87,18 @@ fn printWD() !void {
     try stdout.print("{s}\n", .{pwd});
 }
 
+fn cd(dir: []const u8) !void {
+    std.posix.chdir(dir) catch |err| {
+        switch (err) {
+            error.FileNotFound => try stdout.print("cd: {s}: No such file or directory\n", .{dir}),
+            error.AccessDenied => try stdout.print("cd: {s}: Permission denied\n", .{dir}),
+            error.NotDir => try stdout.print("cd: {s}: Not a directory\n", .{dir}),
+            else => try stdout.print("cd: {s}: Unknown error\n", .{dir}),
+        }
+        return; // Return without propagating the error
+    };
+}
+
 pub fn main() !void {
     // Initialize allocator
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -135,6 +147,8 @@ pub fn main() !void {
             try echo(args);
         } else if (mem.eql(u8, command, "pwd")) {
             try printWD();
+        } else if (mem.eql(u8, command, "cd")) {
+            try cd(args);
         } else {
             // Handle external commands
             const path = try parsePATH(allocator, command) orelse {

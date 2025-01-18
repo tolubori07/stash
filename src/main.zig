@@ -81,9 +81,10 @@ fn echo(str: []const u8) !void {
 }
 
 fn printWD() !void {
-    const buffer: [1024]u8 = undefined;
-    const pwd = std.process.getCwd(buffer);
-    stdout.print("{s}", pwd);
+    //const buffer: [std.fs.MAX_PATH_BYTES]u8 = undefined;
+    const pwd = try std.process.getCwdAlloc(std.heap.page_allocator);
+    defer std.heap.page_allocator.free(pwd);
+    try stdout.print("{s}\n", .{pwd});
 }
 
 pub fn main() !void {
@@ -93,7 +94,7 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     // Define builtin commands
-    const builtins = [_][]const u8{ "echo", "exit", "type", "cd" };
+    const builtins = [_][]const u8{ "echo", "exit", "type", "cd", "pwd" };
 
     // Main shell loop
     while (true) {
@@ -132,6 +133,8 @@ pub fn main() !void {
             };
         } else if (mem.eql(u8, command, "echo")) {
             try echo(args);
+        } else if (mem.eql(u8, command, "pwd")) {
+            try printWD();
         } else {
             // Handle external commands
             const path = try parsePATH(allocator, command) orelse {

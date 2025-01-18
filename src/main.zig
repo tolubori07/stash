@@ -81,7 +81,11 @@ fn echo(str: []const u8) !void {
 }
 
 fn cd(dir: []const u8) !void {
-    try std.posix.chdir(dir);
+    if (dir.len > 0) {
+        try std.posix.chdir(dir);
+    } else {
+        try std.posix.chdir("");
+    }
 }
 
 pub fn main() !void {
@@ -141,7 +145,7 @@ pub fn main() !void {
             defer allocator.free(path);
             var xargs = std.ArrayList([]const u8).init(allocator);
             defer xargs.deinit();
-            try xargs.append(path);
+            try xargs.append(command);
             while (tokens.next()) |arg| {
                 try xargs.append(arg);
             }

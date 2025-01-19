@@ -142,7 +142,7 @@ pub fn main() !void {
         var tokens = mem.splitScalar(u8, user_input, ' ');
         const command = tokens.first();
         const temp_args = tokens.rest();
-        const args = temp_args[1 .. temp_args.len - 1];
+        const args = if (temp_args[0] == '\'') temp_args[1 .. temp_args.len - 1] else temp_args;
 
         // Handle empty input
         if (command.len == 0) continue;

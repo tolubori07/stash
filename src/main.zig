@@ -141,7 +141,8 @@ pub fn main() !void {
         // Parse input into command and arguments
         var tokens = mem.splitScalar(u8, user_input, ' ');
         const command = tokens.first();
-        const args = tokens.rest();
+        const temp_args = tokens.rest();
+        const args = temp_args[1 .. temp_args.len - 1];
 
         // Handle empty input
         if (command.len == 0) continue;

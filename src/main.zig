@@ -4,6 +4,7 @@ const mem = std.mem;
 const process = std.process;
 const fs = std.fs;
 const stdout = io.getStdOut().writer();
+const posix = std.posix;
 
 // Custom error set for shell operations
 const ShellError = error{
@@ -15,7 +16,7 @@ const ShellError = error{
 
 /// Checks if a command exists in PATH and returns its full path
 fn parsePATH(allocator: mem.Allocator, name: []const u8) !?[]const u8 {
-    const path_env = std.posix.getenv("PATH") orelse return ShellError.PathNotFound;
+    const path_env = posix.getenv("PATH") orelse return ShellError.PathNotFound;
 
     var iter = mem.split(u8, path_env, ":");
     while (iter.next()) |dir| {
@@ -88,14 +89,31 @@ fn printWD() !void {
 }
 
 fn cd(dir: []const u8) !void {
-    std.posix.chdir(dir) catch |err| {
+    if (dir.len == 0 or (dir.len == 1 and dir[0] == '~')) {
+        const home_dir = posix.getenv("HOME") orelse {
+            try stdout.print("cd: HOME environment variable not set\n", .{});
+            return;
+        };
+        posix.chdir(home_dir) catch |err| {
+            switch (err) {
+                error.FileNotFound => try stdout.print("cd: HOME: No such file or directory\n", .{}),
+                error.AccessDenied => try stdout.print("cd: HOME: Permission denied\n", .{}),
+                error.NotDir => try stdout.print("cd: HOME: Not a directory\n", .{}),
+                else => try stdout.print("cd: HOME: Unknown error\n", .{}),
+            }
+            return;
+        };
+        return;
+    }
+
+    posix.chdir(dir) catch |err| {
         switch (err) {
             error.FileNotFound => try stdout.print("cd: {s}: No such file or directory\n", .{dir}),
             error.AccessDenied => try stdout.print("cd: {s}: Permission denied\n", .{dir}),
             error.NotDir => try stdout.print("cd: {s}: Not a directory\n", .{dir}),
             else => try stdout.print("cd: {s}: Unknown error\n", .{dir}),
         }
-        return; // Return without propagating the error
+        return;
     };
 }
 
@@ -162,7 +180,7 @@ pub fn main() !void {
             while (tokens.next()) |arg| {
                 try xargs.append(arg);
             }
-            var child = std.process.Child.init(xargs.items, allocator);
+            var child = process.Child.init(xargs.items, allocator);
             _ = try child.spawnAndWait();
         }
     }

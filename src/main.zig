@@ -1,10 +1,17 @@
 const std = @import("std");
+const cd = @import("./builtins/cd.zig").cd;
+const echo = @import("./builtins/echo.zig").echo;
+const printWD = @import("./builtins/pwd.zig").printWD;
+const exit = @import("./builtins/exit.zig").exit;
+const typeFn = @import("./builtins/type.zig").typeFn;
+const parsePATH = @import("./utils/parsePATH.zig").parsePATH;
 const io = std.io;
 const mem = std.mem;
 const process = std.process;
 const fs = std.fs;
 const stdout = io.getStdOut().writer();
 const posix = std.posix;
+const ArrayList = std.ArrayList;
 
 // Custom error set for shell operations
 const ShellError = error{
@@ -14,107 +21,20 @@ const ShellError = error{
     PermissionDenied,
 };
 
-/// Checks if a command exists in PATH and returns its full path
-fn parsePATH(allocator: mem.Allocator, name: []const u8) !?[]const u8 {
-    const path_env = posix.getenv("PATH") orelse return ShellError.PathNotFound;
-
-    var iter = mem.split(u8, path_env, ":");
-    while (iter.next()) |dir| {
-        const full_path = try fs.path.join(allocator, &[_][]const u8{ dir, name });
-        errdefer allocator.free(full_path);
-
-        const file = fs.openFileAbsolute(full_path, .{ .mode = .read_only }) catch |err| {
-            allocator.free(full_path);
-            if (err == error.FileNotFound) continue;
-            if (err == error.PermissionDenied) return ShellError.PermissionDenied;
-            continue;
-        };
-        defer file.close();
-
-        const stat = file.stat() catch |err| {
-            allocator.free(full_path);
-            if (err == error.PermissionDenied) return ShellError.PermissionDenied;
-            continue;
-        };
-
-        // Check if file is executable
-        if (stat.mode & 0o111 != 0) {
-            return full_path;
-        }
-
-        allocator.free(full_path);
-    }
-    return null;
-}
-
-/// Implementation of the type builtin command
-fn typeFn(allocator: mem.Allocator, command: []const u8, builtins: []const []const u8) !void {
-    // First check if it's a builtin command
-    for (builtins) |builtin| {
-        if (mem.eql(u8, command, builtin)) {
-            try stdout.print("{s} is a shell builtin\n", .{command});
-            return;
-        }
-    }
-
-    // Then check if it exists in PATH
-    const path = try parsePATH(allocator, command) orelse {
-        try stdout.print("{s} not found\n", .{command});
-        return;
-    };
-    defer allocator.free(path);
-
-    try stdout.print("{s} is {s}\n", .{ command, path });
-}
-
-fn exit(args: []const u8) !void {
-    //example '5'(ASCII value of 53) - '0'(ASCII value of 48) = 5
-    if (args.len > 0) {
-        process.exit(args[0] - '0');
+//TODO: Handle double quotes
+pub fn handleQuotes(args: []u8, allocator: mem.Allocator) []u8 {
+    if (args[0] == '\'') {
+        return args[1 .. args.len - 1];
     } else {
-        process.exit(0);
-    }
-}
-
-fn echo(str: []const u8) !void {
-    _ = try stdout.write(str);
-    _ = try stdout.write("\n");
-}
-
-fn printWD() !void {
-    //const buffer: [std.fs.MAX_PATH_BYTES]u8 = undefined;
-    const pwd = try std.process.getCwdAlloc(std.heap.page_allocator);
-    defer std.heap.page_allocator.free(pwd);
-    try stdout.print("{s}\n", .{pwd});
-}
-
-fn cd(dir: []const u8) !void {
-    if (dir.len == 0 or (dir.len == 1 and dir[0] == '~')) {
-        const home_dir = posix.getenv("HOME") orelse {
-            try stdout.print("cd: HOME environment variable not set\n", .{});
-            return;
-        };
-        posix.chdir(home_dir) catch |err| {
-            switch (err) {
-                error.FileNotFound => try stdout.print("cd: HOME: No such file or directory\n", .{}),
-                error.AccessDenied => try stdout.print("cd: HOME: Permission denied\n", .{}),
-                error.NotDir => try stdout.print("cd: HOME: Not a directory\n", .{}),
-                else => try stdout.print("cd: HOME: Unknown error\n", .{}),
+        const newArgs = ArrayList(u8).init(allocator);
+        defer newArgs.deinit();
+        for (args, 0..) |arg, i| {
+            while (args[i + 1] == ' ') {
+                continue;
             }
-            return;
-        };
-        return;
-    }
-
-    posix.chdir(dir) catch |err| {
-        switch (err) {
-            error.FileNotFound => try stdout.print("cd: {s}: No such file or directory\n", .{dir}),
-            error.AccessDenied => try stdout.print("cd: {s}: Permission denied\n", .{dir}),
-            error.NotDir => try stdout.print("cd: {s}: Not a directory\n", .{dir}),
-            else => try stdout.print("cd: {s}: Unknown error\n", .{dir}),
+            newArgs.append(arg);
         }
-        return;
-    };
+    }
 }
 
 pub fn main() !void {
@@ -137,11 +57,16 @@ pub fn main() !void {
             if (err == error.EndOfStream) break;
             continue;
         };
-
         // Parse input into command and arguments
         var tokens = mem.splitScalar(u8, user_input, ' ');
         const command = tokens.first();
         const temp_args = tokens.rest();
+        //const args = std.ArrayList(u8).init(allocator);
+        //defer args.deinit();
+        //for (temp_args) |value| {
+        //    try args.append(value);
+        //    while (value) {}
+        // }
         const args = if (temp_args[0] == '\'') temp_args[1 .. temp_args.len - 1] else temp_args;
 
         // Handle empty input
